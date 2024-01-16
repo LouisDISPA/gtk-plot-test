@@ -1,22 +1,5 @@
-// SPDX-FileCopyrightText: 2022  Emmanuele Bassi
-// SPDX-License-Identifier: GPL-3.0-or-later
-
-// Based on gnome-sound-recorder/src/waveform.js:
-// - Copyright 2013 Meg Ford
-// - Copyright 2022 Kavan Mevada
-// Released under the terms of the LGPL 2.0 or later
-
-#![allow(deprecated)]
-
-use std::{
-    cell::{Cell, RefCell},
-};
-
 use adw::subclass::prelude::*;
-
-use gtk::gdk::prelude::*;
-use gtk::{glib, graphene, prelude::*};
-
+use gtk::{glib, prelude::*};
 
 #[derive(Debug, PartialEq)]
 pub struct Point {
@@ -38,9 +21,12 @@ impl Point {
 }
 
 mod imp {
-    use super::*;
-    use glib::{subclass::Signal, ParamSpec, Value};
-    use once_cell::sync::Lazy;
+    use std::cell::{Cell, RefCell};
+
+    use adw::subclass::prelude::*;
+    use gtk::{glib, graphene, prelude::*};
+
+    use super::{PlotType, Point};
 
     #[derive(Debug, Default)]
     pub struct PlotViewImpl {
@@ -52,7 +38,7 @@ mod imp {
         pub y_max: Cell<Option<f64>>,
         pub x_min: Cell<Option<f64>>,
         pub y_min: Cell<Option<f64>>,
-        // pub font_name: String,
+        pub font_name: RefCell<String>,
         pub axis_color: Option<gtk::gdk::RGBA>,
         pub line_color: Option<gtk::gdk::RGBA>,
         pub text_color: Option<gtk::gdk::RGBA>,
@@ -62,7 +48,7 @@ mod imp {
 
     #[glib::object_subclass]
     impl ObjectSubclass for PlotViewImpl {
-        const NAME: &'static str = "AmberolWaveformView";
+        const NAME: &'static str = "PlotView";
         type Type = super::PlotView;
         type ParentType = gtk::Widget;
 
@@ -72,29 +58,7 @@ mod imp {
         }
     }
 
-    impl ObjectImpl for PlotViewImpl {
-        fn properties() -> &'static [ParamSpec] {
-            static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(std::vec::Vec::new);
-            PROPERTIES.as_ref()
-        }
-
-        fn set_property(&self, _id: usize, _value: &Value, pspec: &ParamSpec) {
-            match pspec.name() {
-                _ => unimplemented!(),
-            };
-        }
-
-        fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
-            match pspec.name() {
-                _ => unimplemented!(),
-            }
-        }
-
-        fn signals() -> &'static [Signal] {
-            static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(std::vec::Vec::new);
-            SIGNALS.as_ref()
-        }
-    }
+    impl ObjectImpl for PlotViewImpl {}
 
     impl WidgetImpl for PlotViewImpl {
         fn request_mode(&self) -> gtk::SizeRequestMode {
@@ -119,6 +83,7 @@ mod imp {
             let grid_color = self.grid_color.unwrap_or(color.with_alpha(0.1));
             let axis_color = self.axis_color.unwrap_or(color);
 
+            // Calculate the min and max values for x and y
             let x_max = match self.x_max.get() {
                 None => self
                     .point_list
@@ -161,16 +126,15 @@ mod imp {
                 Some(value) => value,
             };
 
-
+            // Create a cairo context
             let cairo = snapshot.append_cairo(&graphene::Rect::new(0., 0., w as f32, h as f32));
             cairo.set_antialias(gtk::cairo::Antialias::Fast);
             cairo.set_tolerance(1.5);
-            // GdkCairoContextExt::set_source_rgba(&cairo, &text_color);
-            // cairo.select_font_face(
-            //     &self.font_name,
-            //     gtk::cairo::FontSlant::Normal,
-            //     gtk::cairo::FontWeight::Normal,
-            // );
+            cairo.select_font_face(
+                &self.font_name.borrow(),
+                gtk::cairo::FontSlant::Normal,
+                gtk::cairo::FontWeight::Normal,
+            );
 
             GdkCairoContextExt::set_source_rgba(&cairo, &text_color);
 
@@ -211,7 +175,7 @@ mod imp {
             cairo.stroke().unwrap();
 
             // Find what is the size of the grid section
-            // get one tenth of the width and find the 
+            // get one tenth of the width and find the
             // order of magnitude of the grid
             let grid_section = 0.3 * (x_max - x_min).abs();
             let grid_section_order = grid_section.log10().floor() as i32;
@@ -225,9 +189,9 @@ mod imp {
 
             // Now draw every grid_section from x_min to x_max
             let mut grid_x = x_min + grid_section;
-            while grid_x <= x_max - grid_section / 2. {
-
-                let pos = (grid_x - x_min).abs() / (x_max - x_min).abs() * (end_x - start_x) + start_x;
+            while grid_x <= x_max - grid_section / 4. {
+                let pos =
+                    (grid_x - x_min).abs() / (x_max - x_min).abs() * (end_x - start_x) + start_x;
 
                 // Draw grid x-line
                 GdkCairoContextExt::set_source_rgba(&cairo, &grid_color);
@@ -247,7 +211,6 @@ mod imp {
                 grid_x += grid_section;
             }
 
-            
             // If the last axis is far enough from the end of the graph
             // draw the last axis
             let pos = (x_max - x_min).abs() / (x_max - x_min).abs() * (end_x - start_x) + start_x;
@@ -269,11 +232,11 @@ mod imp {
             let grid_section = 0.4 * (y_max - y_min).abs();
             let grid_section_order = grid_section.log(5.).floor() as i32;
             let grid_section = 5f64.powi(grid_section_order);
-            
-            let mut grid_y = y_min + grid_section;
-            while grid_y <= y_max {
 
-                let pos = (grid_y - y_min).abs() / (y_max - y_min).abs() * (end_y - start_y) + start_y;
+            let mut grid_y = y_min + grid_section;
+            while grid_y <= y_max - grid_section / 4. {
+                let pos =
+                    (grid_y - y_min).abs() / (y_max - y_min).abs() * (end_y - start_y) + start_y;
 
                 // Draw grid y-line
                 GdkCairoContextExt::set_source_rgba(&cairo, &grid_color);
@@ -296,7 +259,8 @@ mod imp {
             // If the last axis is far enough from the end of the graph
             // draw the last axis
             if (grid_y - y_max - grid_section).abs() > grid_section / 10. {
-                let pos = (y_max - y_min).abs() / (y_max - y_min).abs() * (end_y - start_y) + start_y;
+                let pos =
+                    (y_max - y_min).abs() / (y_max - y_min).abs() * (end_y - start_y) + start_y;
                 GdkCairoContextExt::set_source_rgba(&cairo, &grid_color);
                 cairo.set_line_width(1.);
                 cairo.move_to(start_x, h - pos);
@@ -318,7 +282,7 @@ mod imp {
             cairo.scale(1., -1.);
 
             // Move coordinate system to (0,0) of drawn coordinate system
-            cairo.translate(0.1 * w, - 0.5 * h);
+            cairo.translate(0.1 * w, -0.5 * h);
             GdkCairoContextExt::set_source_rgba(&cairo, &line_color);
             cairo.set_line_width(2.0);
 
@@ -343,7 +307,7 @@ mod imp {
                         // Draw line to next point
                         cairo.line_to(point.x * x_scale, point.y * y_scale);
                         cairo.set_line_join(gtk::cairo::LineJoin::Round);
-                        cairo.stroke();
+                        cairo.stroke().unwrap();
                         cairo.move_to(point.x * x_scale, point.y * y_scale);
                     }
                     PlotType::Scatter => {
@@ -356,7 +320,7 @@ mod imp {
                         cairo.set_line_cap(gtk::cairo::LineCap::Round);
                         cairo.move_to(point.x * x_scale, point.y * y_scale);
                         cairo.close_path();
-                        cairo.stroke();
+                        cairo.stroke().unwrap();
                     }
                 }
             }
@@ -387,6 +351,10 @@ impl PlotView {
     }
     pub fn set_points(&self, point_list: Vec<Point>) {
         self.imp().point_list.replace(point_list);
+        self.queue_draw();
+    }
+    pub fn set_font_name(&self, font_name: &str) {
+        self.imp().font_name.replace(font_name.to_string());
         self.queue_draw();
     }
     pub fn set_x_max(&self, x_max: f64) {
