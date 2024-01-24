@@ -6,7 +6,7 @@ mod imp {
     use adw::subclass::prelude::*;
     use gtk::{glib, CompositeTemplate};
 
-    use crate::plot::{PlotType, PlotView, Point};
+    use crate::plot::{PlotView, Point};
 
     #[derive(CompositeTemplate, Default)]
     #[template(resource = "/window.ui")]
@@ -17,7 +17,7 @@ mod imp {
 
     #[glib::object_subclass]
     impl ObjectSubclass for Window {
-        const NAME: &'static str = "GraphWindow";
+        const NAME: &'static str = "PlotWindow";
         type Type = super::Window;
         type ParentType = gtk::ApplicationWindow;
 
@@ -42,11 +42,13 @@ mod imp {
                 .collect();
             let test = self.plot_view.clone();
             test.set_points(points);
-            test.set_type(PlotType::Scatter);
+            // test.set_type(PlotType::Scatter);
             test.set_title("Battery Charge");
             test.set_x_label("Time (h)");
             test.set_y_label("Charge (%)");
 
+            // Gtk widgets are not thread safe, so we need to use spawn_future_local
+            // to update the plot from the main thread.
             glib::spawn_future_local(async move {
                 for i in 500.. {
                     glib::timeout_future(Duration::from_millis(30)).await;

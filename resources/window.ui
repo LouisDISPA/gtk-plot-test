@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
-  <template class="GraphWindow" parent="GtkApplicationWindow">
-    <property name="title">Graph demo</property>
+  <template class="PlotWindow" parent="GtkApplicationWindow">
+    <property name="title">Plot demo</property>
     <property name="default_width">1200</property>
     <property name="default_height">600</property>
     <child>

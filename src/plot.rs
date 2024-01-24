@@ -83,48 +83,34 @@ mod imp {
             let grid_color = self.grid_color.unwrap_or(color.with_alpha(0.1));
             let axis_color = self.axis_color.unwrap_or(color);
 
-            // Calculate the min and max values for x and y
-            let x_max = match self.x_max.get() {
-                None => self
-                    .point_list
-                    .borrow()
-                    .iter()
-                    .map(|p| p.x)
-                    .max_by(|a, b| a.total_cmp(b))
-                    .unwrap_or(500.),
-                Some(value) => value,
-            };
-            let x_min = match self.x_min.get() {
-                None => self
-                    .point_list
-                    .borrow()
-                    .iter()
-                    .map(|p| p.x)
-                    .min_by(|a, b| a.total_cmp(b))
-                    .unwrap_or(0.),
-                Some(value) => value,
+            // Do one pass to get the min and max values for x and y
+            let (x_max, x_min, y_max, y_min) = {
+                let borrow = &self.point_list.borrow();
+                let mut point_iter = borrow.iter();
+                if let Some(first) = point_iter.next() {
+                    let mut x_max = first.x;
+                    let mut x_min = first.x;
+                    let mut y_max = first.y;
+                    let mut y_min = first.y;
+
+                    for point in point_iter {
+                        x_max = x_max.max(point.x);
+                        x_min = x_min.min(point.x);
+                        y_max = y_max.max(point.y);
+                        y_min = y_min.min(point.y);
+                    }
+
+                    (Some(x_max), Some(x_min), Some(y_max), Some(y_min))
+                } else {
+                    (None, None, None, None)
+                }
             };
 
-            let y_max = match self.y_max.get() {
-                None => self
-                    .point_list
-                    .borrow()
-                    .iter()
-                    .map(|p| p.y)
-                    .max_by(|a, b| a.total_cmp(b))
-                    .unwrap_or(100.),
-                Some(value) => value,
-            };
-            let y_min = match self.y_min.get() {
-                None => self
-                    .point_list
-                    .borrow()
-                    .iter()
-                    .map(|p| p.y)
-                    .min_by(|a, b| a.total_cmp(b))
-                    .unwrap_or(0.),
-                Some(value) => value,
-            };
+            // Calculate the min and max values for x and y
+            let x_max = self.x_max.get().or(x_max).unwrap_or(500.);
+            let x_min = self.x_min.get().or(x_min).unwrap_or(0.);
+            let y_max = self.y_max.get().or(y_max).unwrap_or(100.);
+            let y_min = self.y_min.get().or(y_min).unwrap_or(0.);
 
             // Create a cairo context
             let cairo = snapshot.append_cairo(&graphene::Rect::new(0., 0., w as f32, h as f32));
@@ -174,7 +160,7 @@ mod imp {
             cairo.line_to(0.1 * w, 0.2 * h);
             cairo.stroke().unwrap();
 
-            // Find what is the size of the grid section
+            // Find what is the size of the grid section:
             // get one tenth of the width and find the
             // order of magnitude of the grid
             let grid_section = 0.3 * (x_max - x_min).abs();
@@ -291,12 +277,11 @@ mod imp {
             let y_scale = (h - 2. * 0.2 * h) / (y_max - y_min).abs();
 
             // Draw data points from list
-            // for (l = self.point_list; l != NULL; l = l.next)
             let borrow = &self.point_list.borrow();
             let mut point_iter = borrow.iter();
 
             if matches!(self.typ.get(), PlotType::Line) {
-                // Move to first point
+                // Move to first point to start drawing the line
                 if let Some(point) = point_iter.next() {
                     cairo.move_to(point.x * x_scale, point.y * y_scale);
                 }
@@ -311,10 +296,6 @@ mod imp {
                         cairo.move_to(point.x * x_scale, point.y * y_scale);
                     }
                     PlotType::Scatter => {
-                        // Draw square
-                        //cairo.rectangle(point.x * x_scale, point.y * y_scale, 4, 4);
-                        //cairo.fill();
-
                         // Draw point
                         cairo.set_line_width(3.);
                         cairo.set_line_cap(gtk::cairo::LineCap::Round);
