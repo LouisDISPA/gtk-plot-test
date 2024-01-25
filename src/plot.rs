@@ -28,6 +28,15 @@ mod imp {
 
     use super::{PlotType, Point};
 
+    // We use Cell and RefCell for interior mutability,
+    // this permits us to change the values since we only
+    // have a shared reference to the struct.
+    //
+    // Cell is for Copy types, RefCell is for non-Copy types.
+    // In GTK, widgets are generaly not thread safe (I think)
+    // so we don't need to use Atomic types.
+    //
+    // more infos: https://gtk-rs.org/gtk4-rs/stable/latest/book/main_event_loop.html
     #[derive(Debug, Default)]
     pub struct PlotViewImpl {
         pub title: RefCell<String>,
