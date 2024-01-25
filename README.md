@@ -8,3 +8,15 @@ I took inspiration and copy some code from :
 - [GNOME Power Statistics](https://gitlab.gnome.org/GNOME/gnome-power-manager/-/tree/master)
 - [Live chart](https://github.com/lcallarec/live-chart)
 - [GTK Chart](https://github.com/lundmar/gtkchart)
+
+To try it out install the dependencies and run the example:
+```bash
+# Install dependencies (gtk4 and libadwaita)
+sudo apt install libgtk-4-dev libadwaita-1-dev
+
+cargo run --release
+```
+
+Screenshot:
+
+![Screenshot](screenshot.png)
