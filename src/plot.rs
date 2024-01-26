@@ -24,7 +24,8 @@ mod imp {
     use std::cell::{Cell, RefCell};
 
     use adw::subclass::prelude::*;
-    use gtk::{glib, graphene, prelude::*};
+    use gtk::prelude::*;
+    use gtk::{glib, graphene};
 
     use super::{PlotType, Point};
 
@@ -80,15 +81,12 @@ mod imp {
             let h = widget.height() as f64;
 
             // Grab the colors
-            let style_context = widget.style_context();
-            let color = style_context.color();
+            let color = widget.color();
 
             let text_color = self.text_color.unwrap_or(color);
-            let line_color = self.line_color.unwrap_or_else(|| {
-                style_context
-                    .lookup_color("theme_selected_bg_color")
-                    .expect("Unable to get theme color")
-            });
+            let line_color = self
+                .line_color
+                .unwrap_or_else(|| gtk::gdk::RGBA::new(0.2, 0.4, 0.9, 1.));
             let grid_color = self.grid_color.unwrap_or(color.with_alpha(0.1));
             let axis_color = self.axis_color.unwrap_or(color);
 
